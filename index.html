@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="styles.css">
 
 <style>
-/* NUEVO: DESCRIPCIONES DESPLEGABLES */
+/* DESCRIPCIONES DESPLEGABLES */
 .detalles-producto{
   margin-top:5px;
   max-width:100%;
@@ -55,30 +55,6 @@
 }
 </style>
 </head>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-  const supabasePrueba = window.supabase.createClient(
-    "https://xeidtlryuudncqnrejph.supabase.co",
-    "sb_publishable_FJPpnnO5CF5VEDncGsXO1g_mP0r5aGo"
-  );
-
-  async function probarConexion() {
-    const { data, error } = await supabasePrueba
-      .from("productos")
-      .select("id, nombre, marca, kilo, pieza");
-
-    if (error) {
-      console.error("Error de Supabase:", error.message);
-      return;
-    }
-
-    console.log("Conexión exitosa con Supabase");
-    console.table(data);
-  }
-
-  probarConexion();
-</script>
 <body>
 
 <!-- ENCABEZADO PRINCIPAL -->
@@ -142,6 +118,9 @@
   <p>Calidad y frescura para tu negocio</p>
 </footer>
 
+<!-- LIBRERÍA DE SUPABASE -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 <script>
 "use strict";
 
@@ -154,22 +133,71 @@ const buscador=document.getElementById("buscador");
 const filtroMarca=document.getElementById("filtroMarca");
 const btnImprimir=document.getElementById("btnImprimir");
 
-// CARGAR PRODUCTOS
-function obtenerProductos() {
-  try {
-    const guardados=localStorage.getItem(CLAVE_PRODUCTOS);
-    if(!guardados) return [];
+// ==========================================
+// SUPABASE: DATOS COMPARTIDOS
+// ==========================================
 
-    const datos=JSON.parse(guardados);
-    return Array.isArray(datos)?datos:[];
-  } catch(error) {
-    console.error("Error al cargar productos:",error);
-    return [];
+const URL_SUPABASE =
+  "https://xeidtlryuudncqnrejph.supabase.co";
+
+const CLAVE_PUBLICA_SUPABASE =
+  "sb_publishable_FJPpnnO5CF5VEDncGsXO1g_mP0r5aGo";
+
+const clienteSupabase=window.supabase.createClient(
+  URL_SUPABASE,
+  CLAVE_PUBLICA_SUPABASE
+);
+
+let productosEnMemoria=[];
+let solicitudEnCurso=0;
+
+// Mantiene la interfaz de la función original.
+function obtenerProductos(){
+  return productosEnMemoria;
+}
+
+// CARGAR PRODUCTOS DESDE SUPABASE
+async function cargarProductosSupabase(){
+  const solicitud=++solicitudEnCurso;
+
+  try{
+    const {data,error}=await clienteSupabase
+      .from("productos")
+      .select("*")
+      .order("id",{ascending:true});
+
+    if(error) throw error;
+
+    if(solicitud!==solicitudEnCurso) return;
+
+    productosEnMemoria=Array.isArray(data)?data:[];
+
+    renderizarCatalogo();
+
+  }catch(error){
+    console.error(
+      "No se pudieron cargar los productos de Supabase:",
+      error
+    );
+
+    if(solicitud!==solicitudEnCurso) return;
+
+    if(!productosEnMemoria.length){
+      catalogo.innerHTML=`
+        <div class="vacio">
+          No se pudo cargar el catálogo.
+          Revisa tu conexión y vuelve a intentar.
+        </div>
+      `;
+    }
   }
 }
 
+// ==========================================
 // FUNCIONES GENERALES
-function escaparHTML(valor) {
+// ==========================================
+
+function escaparHTML(valor){
   return String(valor??"")
     .replace(/&/g,"&amp;")
     .replace(/</g,"&lt;")
@@ -178,7 +206,7 @@ function escaparHTML(valor) {
     .replace(/'/g,"&#39;");
 }
 
-function formatoPrecio(valor) {
+function formatoPrecio(valor){
   if(
     valor===null ||
     valor===undefined ||
@@ -189,7 +217,7 @@ function formatoPrecio(valor) {
     String(valor).replace(/[$,\s]/g,"")
   );
 
-  if(!Number.isFinite(numero)) {
+  if(!Number.isFinite(numero)){
     return escaparHTML(valor);
   }
 
@@ -199,7 +227,7 @@ function formatoPrecio(valor) {
   });
 }
 
-function obtenerNombre(producto) {
+function obtenerNombre(producto){
   return String(
     producto.nombre ??
     producto.producto ??
@@ -207,7 +235,7 @@ function obtenerNombre(producto) {
   );
 }
 
-function obtenerMarca(producto) {
+function obtenerMarca(producto){
   return String(
     producto.marca ??
     producto.categoria ??
@@ -215,7 +243,7 @@ function obtenerMarca(producto) {
   );
 }
 
-function obtenerImagen(producto) {
+function obtenerImagen(producto){
   return String(
     producto.imagen ??
     producto.foto ??
@@ -223,7 +251,7 @@ function obtenerImagen(producto) {
   );
 }
 
-function obtenerPrecioKilo(producto) {
+function obtenerPrecioKilo(producto){
   return (
     producto.precioKilo ??
     producto.precioKg ??
@@ -232,7 +260,7 @@ function obtenerPrecioKilo(producto) {
   );
 }
 
-function obtenerPrecioPieza(producto) {
+function obtenerPrecioPieza(producto){
   return (
     producto.precioPieza ??
     producto.pieza ??
@@ -240,13 +268,15 @@ function obtenerPrecioPieza(producto) {
   );
 }
 
-// NUEVO: DESCRIPCIÓN DEL PRODUCTO
-function obtenerDescripcion(producto) {
-  return String(producto.descripcion??"").trim();
+// DESCRIPCIÓN DEL PRODUCTO
+function obtenerDescripcion(producto){
+  return String(
+    producto.descripcion??""
+  ).trim();
 }
 
 // COMPATIBILIDAD ORIGINAL DE PESOS
-function obtenerPeso(producto) {
+function obtenerPeso(producto){
   const peso=
     producto.peso ??
     producto.pesoPromedio ??
@@ -276,18 +306,21 @@ function obtenerPeso(producto) {
     ? `${textoPeso} ${unidad}`
     : textoPeso;
 
-  if(tipo==="fijo" || tipo==="exacto") {
+  if(tipo==="fijo" || tipo==="exacto"){
     return `Peso: ${pesoConUnidad}`;
   }
 
   return `Peso aprox.: ${pesoConUnidad}`;
 }
 
+// ==========================================
 // IMÁGENES
-function crearImagen(producto) {
+// ==========================================
+
+function crearImagen(producto){
   const imagen=obtenerImagen(producto);
 
-  if(!imagen) {
+  if(!imagen){
     return `
       <span
         class="sin-imagen"
@@ -306,14 +339,17 @@ function crearImagen(producto) {
   `;
 }
 
+// ==========================================
 // MARCAS
-function obtenerMarcas(productos) {
+// ==========================================
+
+function obtenerMarcas(productos){
   return [
     ...new Set(productos.map(obtenerMarca))
   ].sort((a,b)=>a.localeCompare(b,"es"));
 }
 
-function actualizarFiltro(productos) {
+function actualizarFiltro(productos){
   const seleccion=filtroMarca.value;
   const marcas=obtenerMarcas(productos);
 
@@ -327,16 +363,18 @@ function actualizarFiltro(productos) {
     filtroMarca.appendChild(opcion);
   });
 
-  if(marcas.includes(seleccion)) {
+  if(marcas.includes(seleccion)){
     filtroMarca.value=seleccion;
   }
 }
 
-// NUEVO: DESCRIPCIÓN DESPLEGABLE
-function crearDescripcion(producto) {
+// ==========================================
+// DESCRIPCIONES DESPLEGABLES
+// ==========================================
+
+function crearDescripcion(producto){
   const descripcion=obtenerDescripcion(producto);
 
-  // Si no tiene descripción, no aparece el botón.
   if(!descripcion) return "";
 
   return `
@@ -349,8 +387,11 @@ function crearDescripcion(producto) {
   `;
 }
 
+// ==========================================
 // TARJETAS DEL CATÁLOGO
-function crearTarjetaMarca(marca,productos) {
+// ==========================================
+
+function crearTarjetaMarca(marca,productos){
   const filas=productos.map(producto=>{
     const nombre=obtenerNombre(producto);
     const peso=obtenerPeso(producto);
@@ -423,9 +464,12 @@ function crearTarjetaMarca(marca,productos) {
   `;
 }
 
+// ==========================================
 // LISTA ORIGINAL PARA IMPRESIÓN
+// ==========================================
 // Las descripciones no aparecen aquí.
-function crearListaImpresion(productos) {
+
+function crearListaImpresion(productos){
   const marcas=obtenerMarcas(productos);
 
   const contenido=marcas.map(marca=>{
@@ -518,8 +562,11 @@ function crearListaImpresion(productos) {
   `;
 }
 
+// ==========================================
 // RENDERIZAR CATÁLOGO
-function renderizarCatalogo() {
+// ==========================================
+
+function renderizarCatalogo(){
   const productos=obtenerProductos();
 
   actualizarFiltro(productos);
@@ -551,13 +598,13 @@ function renderizarCatalogo() {
     return coincideTexto && coincideMarca;
   });
 
-  if(filtrados.length===0) {
+  if(filtrados.length===0){
     catalogo.innerHTML=`
       <div class="vacio">
         No hay productos para mostrar.
       </div>
     `;
-  } else {
+  }else{
     const marcas=obtenerMarcas(filtrados);
 
     catalogo.innerHTML=marcas.map(marca=>{
@@ -575,7 +622,10 @@ function renderizarCatalogo() {
   crearListaImpresion(filtrados);
 }
 
+// ==========================================
 // EVENTOS ORIGINALES
+// ==========================================
+
 buscador.addEventListener(
   "input",
   renderizarCatalogo
@@ -591,17 +641,27 @@ btnImprimir.addEventListener("click",()=>{
   window.print();
 });
 
-window.addEventListener("storage",evento=>{
-  if(evento.key===CLAVE_PRODUCTOS) {
-    renderizarCatalogo();
-  }
-});
+// Actualizar al volver a la página
+window.addEventListener(
+  "focus",
+  cargarProductosSupabase
+);
 
-window.addEventListener("focus",()=>{
-  renderizarCatalogo();
-});
+// Actualizar cuando regresa Internet
+window.addEventListener(
+  "online",
+  cargarProductosSupabase
+);
 
-renderizarCatalogo();
+// CARGA INICIAL
+catalogo.innerHTML=`
+  <div class="vacio">
+    Cargando productos...
+  </div>
+`;
+
+cargarProductosSupabase();
+
 </script>
 
 </body>
