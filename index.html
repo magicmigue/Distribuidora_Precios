@@ -55,7 +55,30 @@
 }
 </style>
 </head>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
+<script>
+  const supabasePrueba = window.supabase.createClient(
+    "https://xeidtlryuudncqnrejph.supabase.co",
+    "sb_publishable_FJPpnnO5CF5VEDncGsXO1g_mP0r5aGo"
+  );
+
+  async function probarConexion() {
+    const { data, error } = await supabasePrueba
+      .from("productos")
+      .select("id, nombre, marca, kilo, pieza");
+
+    if (error) {
+      console.error("Error de Supabase:", error.message);
+      return;
+    }
+
+    console.log("Conexión exitosa con Supabase");
+    console.table(data);
+  }
+
+  probarConexion();
+</script>
 <body>
 
 <!-- ENCABEZADO PRINCIPAL -->
