@@ -37,8 +37,8 @@ body.bloqueado>#panelCredenciales{display:none!important}
 <form id="formAcceso" class="caja-acceso">
 <h1>LOS GÜEROS</h1>
 <p>Acceso exclusivo para administración</p>
-<label for="usuarioAcceso">Usuario</label>
-<input id="usuarioAcceso" autocomplete="username" required>
+<label for="usuarioAcceso">Correo electrónico de Supabase</label>
+<input id="usuarioAcceso" type="email" autocomplete="username" required>
 <label for="claveAcceso">Contraseña</label>
 <input type="password" id="claveAcceso" autocomplete="current-password" required>
 <button type="submit">Iniciar sesión</button>
@@ -61,15 +61,15 @@ body.bloqueado>#panelCredenciales{display:none!important}
 
 <!-- CAMBIAR ACCESO -->
 <section id="panelCredenciales" class="panel panel-credenciales" hidden>
-<h2>Cambiar usuario y contraseña</h2>
-<p>Los cambios se guardarán en este navegador. Si utilizas otro dispositivo, conservará las credenciales iniciales.</p>
+<h2>Cambiar acceso de Supabase</h2>
+<p>Tu usuario es el correo registrado en Supabase Authentication. Puedes cambiar tu contraseña desde aquí.</p>
 <form id="formCredenciales">
-<label for="usuarioActual">Usuario actual</label>
-<input id="usuarioActual" required>
+<label for="usuarioActual">Correo actual</label>
+<input type="email" id="usuarioActual" autocomplete="username" required>
 <label for="claveActual">Contraseña actual</label>
-<input type="password" id="claveActual" required>
-<label for="usuarioNuevo">Nuevo usuario</label>
-<input id="usuarioNuevo" minlength="4" required>
+<input type="password" id="claveActual" autocomplete="current-password" required>
+<label for="usuarioNuevo">Nuevo correo (opcional)</label>
+<input type="email" id="usuarioNuevo" placeholder="Dejar vacío para conservar el correo">
 <label for="claveNueva">Nueva contraseña (mínimo 12 caracteres)</label>
 <input type="password" id="claveNueva" minlength="12" required>
 <div class="acciones-credenciales">
@@ -96,7 +96,7 @@ body.bloqueado>#panelCredenciales{display:none!important}
 <input id="marca" required list="marcas" placeholder="Ej. La Barca">
 <datalist id="marcas"></datalist>
 
-<!-- NUEVO: DESCRIPCIÓN -->
+<!-- DESCRIPCIÓN -->
 <label for="descripcion">Descripción del producto (opcional)</label>
 <textarea id="descripcion" maxlength="1000"
 placeholder="Ej. Queso de pasta hilada, ideal para quesadillas y gratinados."></textarea>
@@ -155,91 +155,153 @@ placeholder="Ej. Queso de pasta hilada, ideal para quesadillas y gratinados."></
 </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 "use strict";
 
-// CONFIGURACIÓN ORIGINAL
-const CLAVE = "losGuerosProductos";
-const CLAVE_MARCAS = "losGuerosMarcas";
-const CLAVE_LOGIN = "losGuerosCredencialesV1";
-const CLAVE_SESION = "losGuerosSesionV1";
 const $ = id => document.getElementById(id);
 
-// ACCESO ORIGINAL
-const LOGIN_INICIAL = {
-  u:"6e9dbc8b0e9c76541d573b5fc46023b31741991d967667af060b5a4845626685",
-  p:"8da0cdc775e42c515af4f6bd4ed51fca957f59041f8cf45ebff4fd9a3e8bf7b9"
-};
+const URL_SUPABASE = "https://xeidtlryuudncqnrejph.supabase.co";
+const CLAVE_PUBLICA = "sb_publishable_FJPpnnO5CF5VEDncGsXO1g_mP0r5aGo";
 
-async function hashSHA256(texto) {
-  const datos = new TextEncoder().encode(texto);
-  const resultado = await crypto.subtle.digest("SHA-256",datos);
-  return Array.from(new Uint8Array(resultado))
-    .map(byte=>byte.toString(16).padStart(2,"0"))
-    .join("");
+const db = window.supabase.createClient(
+  URL_SUPABASE,
+  CLAVE_PUBLICA
+);
+
+const BUCKET = "productos";
+
+let productos = [];
+let marcasGuardadas = [];
+let imagenActual = "";
+let archivoPendiente = null;
+let usuarioActivo = null;
+let guardando = false;
+
+// FUNCIONES GENERALES
+function escapar(texto) {
+  return String(texto??"").replace(/[&<>"']/g, caracter=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[caracter]);
 }
 
-function obtenerCredenciales() {
-  try {
-    const datos=JSON.parse(localStorage.getItem(CLAVE_LOGIN));
-    if(datos &&
-       /^[a-f0-9]{64}$/.test(datos.u) &&
-       /^[a-f0-9]{64}$/.test(datos.p)) return datos;
-  } catch(error) {console.error(error)}
-  return LOGIN_INICIAL;
+function dinero(valor) {
+  if(valor===null || valor===undefined || valor==="") return "—";
+
+  const n=Number(valor);
+
+  return Number.isFinite(n)
+    ? n.toLocaleString("es-MX",{
+        style:"currency",
+        currency:"MXN"
+      })
+    : "—";
 }
 
-async function validarCredenciales(usuario,clave) {
-  const credenciales=obtenerCredenciales();
-  const hashUsuario=await hashSHA256(
-    "LG-USER-v1:"+usuario.trim().toLowerCase()
-  );
-  const hashClave=await hashSHA256("LG-PASS-v1:"+clave);
-  return hashUsuario===credenciales.u &&
-         hashClave===credenciales.p;
+function normalizarMarca(nombre) {
+  return String(nombre??"").trim().toLocaleLowerCase("es");
 }
 
-function actualizarSesion() {
-  const activa=sessionStorage.getItem(CLAVE_SESION)==="1";
-  document.body.classList.toggle("bloqueado",!activa);
-  $("pantallaAcceso").hidden=activa;
-  if(!activa) {
+function mostrarError(error, prefijo="Ocurrió un error") {
+  console.error(prefijo,error);
+  alert(prefijo+": "+(error?.message || String(error)));
+}
+
+// AUTENTICACIÓN CON SUPABASE
+function bloquear(bloqueado) {
+  document.body.classList.toggle("bloqueado",bloqueado);
+  $("pantallaAcceso").hidden=!bloqueado;
+
+  if(bloqueado) {
     $("panelCredenciales").hidden=true;
     $("claveAcceso").value="";
   }
 }
 
-$("formAcceso").addEventListener("submit",async evento=>{
-  evento.preventDefault();
+async function comprobarAdministrador() {
+  const {data,error}=await db.rpc("es_administrador");
+
+  if(error) throw error;
+
+  return data===true;
+}
+
+async function abrirSesion(session) {
+  if(!session?.user) {
+    usuarioActivo=null;
+    productos=[];
+    marcasGuardadas=[];
+    bloquear(true);
+    return;
+  }
+
   try {
-    const valido=await validarCredenciales(
-      $("usuarioAcceso").value,
-      $("claveAcceso").value
-    );
-    if(!valido) {
-      $("mensajeAcceso").textContent=
-        "Usuario o contraseña incorrectos.";
-      return;
+    if(!await comprobarAdministrador()) {
+      throw new Error(
+        "Tu cuenta no está autorizada como administradora."
+      );
     }
-    sessionStorage.setItem(CLAVE_SESION,"1");
-    $("mensajeAcceso").textContent="";
-    $("formAcceso").reset();
-    actualizarSesion();
+
+    usuarioActivo=session.user;
+    bloquear(false);
+
+    $("usuarioActual").value=usuarioActivo.email||"";
+
+    await cargarDatos();
+
   } catch(error) {
     console.error(error);
-    $("mensajeAcceso").textContent=
-      "No se pudo verificar el acceso. Abre la página desde HTTPS o localhost.";
+    usuarioActivo=null;
+    bloquear(true);
+    $("mensajeAcceso").textContent=error.message;
   }
+}
+
+// INICIAR SESIÓN
+$("formAcceso").addEventListener("submit",async evento=>{
+  evento.preventDefault();
+
+  $("mensajeAcceso").textContent="Verificando acceso...";
+
+  const {data,error}=await db.auth.signInWithPassword({
+    email:$("usuarioAcceso").value.trim(),
+    password:$("claveAcceso").value
+  });
+
+  if(error) {
+    $("mensajeAcceso").textContent=
+      "No se pudo iniciar sesión: "+error.message;
+    return;
+  }
+
+  $("mensajeAcceso").textContent="";
+
+  await abrirSesion(data.session);
 });
 
-$("cerrarSesion").addEventListener("click",()=>{
-  sessionStorage.removeItem(CLAVE_SESION);
-  actualizarSesion();
+// CERRAR SESIÓN
+$("cerrarSesion").addEventListener("click",async()=>{
+  const {error}=await db.auth.signOut();
+
+  if(error) {
+    return mostrarError(error,"No se pudo cerrar sesión");
+  }
+
+  usuarioActivo=null;
+  productos=[];
+  marcasGuardadas=[];
+  bloquear(true);
 });
 
+// CAMBIAR ACCESO
 $("abrirCredenciales").addEventListener("click",()=>{
   $("panelCredenciales").hidden=false;
   $("mensajeCredenciales").textContent="";
+  $("usuarioActual").value=usuarioActivo?.email||"";
   $("panelCredenciales").scrollIntoView({behavior:"smooth"});
 });
 
@@ -250,166 +312,98 @@ $("cancelarCredenciales").addEventListener("click",()=>{
 
 $("formCredenciales").addEventListener("submit",async evento=>{
   evento.preventDefault();
-  try {
-    const valido=await validarCredenciales(
-      $("usuarioActual").value,
-      $("claveActual").value
-    );
-    if(!valido) {
-      $("mensajeCredenciales").textContent=
-        "Las credenciales actuales son incorrectas.";
-      return;
-    }
-    const nuevoUsuario=$("usuarioNuevo").value.trim();
-    const nuevaClave=$("claveNueva").value;
-    if(nuevoUsuario.length<4 || nuevaClave.length<12) {
-      $("mensajeCredenciales").textContent=
-        "Usuario mínimo 4 caracteres; contraseña mínimo 12.";
-      return;
-    }
-    const nuevosDatos={
-      u:await hashSHA256(
-        "LG-USER-v1:"+nuevoUsuario.toLowerCase()
-      ),
-      p:await hashSHA256("LG-PASS-v1:"+nuevaClave)
-    };
-    localStorage.setItem(CLAVE_LOGIN,JSON.stringify(nuevosDatos));
-    $("formCredenciales").reset();
-    alert("Credenciales cambiadas correctamente. Inicia sesión nuevamente.");
-    sessionStorage.removeItem(CLAVE_SESION);
-    actualizarSesion();
-  } catch(error) {
-    console.error(error);
+
+  const correo=usuarioActivo?.email||"";
+
+  if(
+    $("usuarioActual").value.trim().toLowerCase() !==
+    correo.toLowerCase()
+  ) {
     $("mensajeCredenciales").textContent=
-      "No se pudieron guardar las credenciales.";
+      "El correo actual no coincide.";
+    return;
   }
+
+  const {error:verificacion}=
+    await db.auth.signInWithPassword({
+      email:correo,
+      password:$("claveActual").value
+    });
+
+  if(verificacion) {
+    $("mensajeCredenciales").textContent=
+      "La contraseña actual es incorrecta.";
+    return;
+  }
+
+  const nuevoCorreo=$("usuarioNuevo").value.trim();
+
+  const cambio={
+    password:$("claveNueva").value
+  };
+
+  if(
+    nuevoCorreo &&
+    nuevoCorreo.toLowerCase()!==correo.toLowerCase()
+  ) {
+    cambio.email=nuevoCorreo;
+  }
+
+  const {error}=await db.auth.updateUser(cambio);
+
+  if(error) {
+    $("mensajeCredenciales").textContent=error.message;
+    return;
+  }
+
+  $("formCredenciales").reset();
+
+  $("mensajeCredenciales").textContent=
+    nuevoCorreo &&
+    nuevoCorreo.toLowerCase()!==correo.toLowerCase()
+    ? "Contraseña actualizada. Revisa ambos correos para confirmar el cambio de correo, si Supabase lo solicita."
+    : "Contraseña actualizada correctamente.";
 });
 
-// PRODUCTOS INICIALES ORIGINALES
-const PRODUCTOS_INICIALES=[
-["Marca Propia","Oaxaca Los Güeros",111,null],
-["Marca Propia","Oaxaca Económico",93,null],
-["Marca Propia","Rallado Plus",45,null],
-["Marca Propia","Panela Volcanes 1kg",null,135],
-["Marca Propia","Panela Volcanes 3kg",135,null],
-["Marca Propia","Cotija",106,null],
-["Marca Propia","Yakult",null,339],
-["Marca Propia","Manchego Noche Buena 3kg",160,null],
-["Marca Propia","Manchego Noche Buena 4kg",163,null],
-["Marca Propia","Gouda Campesina",145,null],
-["Marca Propia","Longaniza Güeros",65,null],
-["La Barca","Jamón Pierna Fino (Tortugo y Mandolina)",116,null],
-["La Barca","Jamón de Pavo",116,null],
-["La Barca","Tocino Especial",112,null],
-["D'Patrón","Jamón de Pierna Premium (Negro)",123,null],
-["D'Patrón","Jamón de Pierna Preferente (Azul)",106.5,null],
-["D'Patrón","Tocino Delis",110,null],
-["Chilchota","Panela Sello de Oro",126,null],
-["Chilchota","Panela Durangueño",112,null],
-["Chilchota","Sello de Oro",127,null],
-["Chilchota","Canasto Durangueño",116,null],
-["Chilchota","Doble Crema",120,null],
-["Chilchota","Doble Crema 1/2",247,null],
-["Galicia","Jamón de Pierna (Mandolina)",null,600],
-["Galicia","Jamón de Pavo",null,380],
-["Galicia","Queso de Puerco",null,390],
-["Galicia","Jamón de Pierna Horneado (Ovalado)",null,490],
-["Manantiales","Pechuga de Pavo (Ahumada, Natural)",null,345],
-["FUD","Jamón de Pierna",null,600],
-["FUD","Jamón de Pavo Virginia",null,540],
-["FUD","Panela FUD",null,115],
-["FUD","Salchicha de Pavo (2.7kg)",null,155],
-["Alpura","Crema Alpura 1/2",null,800],
-["Alpura","Crema Alpura 1/4",null,400],
-["Alpura","Cubeta Alpura 4L",null,230]
-];
+// PRODUCTOS Y MARCAS EN SUPABASE
+async function cargarDatos() {
+  const [rProductos,rMarcas]=await Promise.all([
+    db.from("productos")
+      .select("*")
+      .order("id",{ascending:true}),
 
-// CARGAR Y GUARDAR PRODUCTOS
-function cargarProductos() {
-  const guardados=localStorage.getItem(CLAVE);
-  if(guardados!==null) {
-    try {
-      const datos=JSON.parse(guardados);
-      if(Array.isArray(datos)) return datos;
-    } catch(error) {console.error(error)}
-  }
-  const iniciales=PRODUCTOS_INICIALES.map((p,i)=>({
-    id:i+1,
-    marca:p[0],
-    nombre:p[1],
-    kilo:p[2],
-    pieza:p[3],
-    imagen:"",
-    descripcion:""
-  }));
-  localStorage.setItem(CLAVE,JSON.stringify(iniciales));
-  return iniciales;
-}
+    db.from("marcas")
+      .select("*")
+      .order("nombre",{ascending:true})
+  ]);
 
-let productos=cargarProductos();
-let imagenActual="";
+  if(rProductos.error) throw rProductos.error;
+  if(rMarcas.error) throw rMarcas.error;
 
-function guardarProductos() {
-  try {
-    localStorage.setItem(CLAVE,JSON.stringify(productos));
-    return true;
-  } catch(error) {
-    console.error(error);
-    alert("No se pudieron guardar los productos. Puede que la imagen sea demasiado grande.");
-    return false;
-  }
-}
+  productos=rProductos.data||[];
 
-// FUNCIONES GENERALES
-function escapar(texto) {
-  return String(texto??"").replace(
-    /[&<>"']/g,
-    caracter=>({
-      "&":"&amp;",
-      "<":"&lt;",
-      ">":"&gt;",
-      '"':"&quot;",
-      "'":"&#39;"
-    })[caracter]
-  );
-}
+  marcasGuardadas=(rMarcas.data||[])
+    .map(m=>m.nombre);
 
-function dinero(valor) {
-  if(valor===null || valor===undefined || valor==="") return "—";
-  return Number(valor).toLocaleString("es-MX",{
-    style:"currency",
-    currency:"MXN"
-  });
-}
-
-function normalizarMarca(nombre) {
-  return String(nombre??"").trim().toLocaleLowerCase("es");
+  renderizar();
 }
 
 // MARCAS
-function cargarMarcas() {
-  try {
-    const datos=JSON.parse(localStorage.getItem(CLAVE_MARCAS));
-    if(Array.isArray(datos))
-      return datos.filter(marca=>typeof marca==="string");
-  } catch(error) {console.error(error)}
-  return [];
-}
-
-let marcasGuardadas=cargarMarcas();
-
 function obtenerMarcas() {
-  const nombres=[
-    ...marcasGuardadas,
-    ...productos.map(producto=>producto.marca)
-  ];
   const unicas=new Map();
 
-  nombres.forEach(nombre=>{
+  [
+    ...marcasGuardadas,
+    ...productos.map(p=>p.marca)
+  ].forEach(nombre=>{
     const limpio=String(nombre??"").trim();
-    if(!limpio) return;
-    const clave=normalizarMarca(limpio);
-    if(!unicas.has(clave)) unicas.set(clave,limpio);
+
+    if(
+      limpio &&
+      !unicas.has(normalizarMarca(limpio))
+    ) {
+      unicas.set(normalizarMarca(limpio),limpio);
+    }
   });
 
   return [...unicas.values()].sort(
@@ -417,36 +411,20 @@ function obtenerMarcas() {
   );
 }
 
-function guardarMarcas() {
-  try {
-    localStorage.setItem(
-      CLAVE_MARCAS,
-      JSON.stringify(marcasGuardadas)
-    );
-    return true;
-  } catch(error) {
-    console.error(error);
-    alert("No se pudieron guardar las marcas.");
-    return false;
-  }
-}
-
 function contarProductosMarca(marca) {
   return productos.filter(
-    producto=>
-      normalizarMarca(producto.marca)===
-      normalizarMarca(marca)
+    p=>normalizarMarca(p.marca)===normalizarMarca(marca)
   ).length;
 }
 
 function actualizarMarcas() {
-  const contenedor=$("marcas");
-  contenedor.replaceChildren();
+  const datalist=$("marcas");
+  datalist.replaceChildren();
 
   obtenerMarcas().forEach(marca=>{
     const opcion=document.createElement("option");
     opcion.value=marca;
-    contenedor.appendChild(opcion);
+    datalist.appendChild(opcion);
   });
 
   mostrarMarcas();
@@ -455,17 +433,19 @@ function actualizarMarcas() {
 function mostrarMarcas() {
   const contenedor=$("listaMarcas");
   contenedor.replaceChildren();
+
   const marcas=obtenerMarcas();
 
   if(!marcas.length) {
-    const mensaje=document.createElement("p");
-    mensaje.textContent="Todavía no hay marcas registradas.";
-    contenedor.appendChild(mensaje);
+    const p=document.createElement("p");
+    p.textContent="Todavía no hay marcas registradas.";
+    contenedor.appendChild(p);
     return;
   }
 
   marcas.forEach(marca=>{
     const cantidad=contarProductosMarca(marca);
+
     const elemento=document.createElement("div");
     elemento.className="marca-item";
 
@@ -476,7 +456,8 @@ function mostrarMarcas() {
     nombre.textContent=marca;
 
     const contador=document.createElement("small");
-    contador.textContent=cantidad===1
+    contador.textContent=
+      cantidad===1
       ? "1 producto"
       : cantidad+" productos";
 
@@ -493,89 +474,98 @@ function mostrarMarcas() {
   });
 }
 
-$("formMarca").addEventListener("submit",evento=>{
+// AGREGAR MARCA
+$("formMarca").addEventListener("submit",async evento=>{
   evento.preventDefault();
+
   const nombre=$("nuevaMarca").value.trim();
 
   if(!nombre) {
-    alert("Escribe el nombre de la marca.");
-    return;
+    return alert("Escribe el nombre de la marca.");
   }
 
-  const existe=obtenerMarcas().some(
-    marca=>normalizarMarca(marca)===normalizarMarca(nombre)
-  );
-
-  if(existe) {
-    alert("Esta marca ya está registrada.");
-    return;
+  if(
+    obtenerMarcas().some(
+      m=>normalizarMarca(m)===normalizarMarca(nombre)
+    )
+  ) {
+    return alert("Esta marca ya está registrada.");
   }
 
-  marcasGuardadas.push(nombre);
+  const {error}=await db.from("marcas").insert({nombre});
 
-  if(!guardarMarcas()) {
-    marcasGuardadas.pop();
-    return;
+  if(error) {
+    return mostrarError(error,"No se pudo agregar la marca");
   }
 
   $("marca").value=nombre;
   $("nuevaMarca").value="";
-  actualizarMarcas();
+
+  await cargarDatos();
+
   alert("Marca agregada correctamente.");
 });
 
-function eliminarMarca(nombreMarca) {
+// ELIMINAR MARCA
+async function eliminarMarca(nombreMarca) {
   const cantidad=contarProductosMarca(nombreMarca);
 
   if(cantidad>0) {
-    alert(
+    return alert(
       'No puedes eliminar "'+nombreMarca+
       '" porque tiene '+cantidad+
       " productos registrados.\n\n"+
       "Primero cambia esos productos de marca o elimínalos."
     );
+  }
+
+  if(!confirm('¿Eliminar la marca "'+nombreMarca+'"?')) {
     return;
   }
 
-  if(!confirm('¿Eliminar la marca "'+nombreMarca+'"?')) return;
+  const {error}=await db.from("marcas")
+    .delete()
+    .eq("nombre",nombreMarca);
 
-  const anteriores=[...marcasGuardadas];
-
-  marcasGuardadas=marcasGuardadas.filter(
-    marca=>normalizarMarca(marca)!==
-           normalizarMarca(nombreMarca)
-  );
-
-  if(!guardarMarcas()) {
-    marcasGuardadas=anteriores;
-    return;
+  if(error) {
+    return mostrarError(error,"No se pudo eliminar la marca");
   }
 
-  if(normalizarMarca($("marca").value)===
-     normalizarMarca(nombreMarca)) {
+  if(
+    normalizarMarca($("marca").value)===
+    normalizarMarca(nombreMarca)
+  ) {
     $("marca").value="";
   }
 
-  actualizarMarcas();
+  await cargarDatos();
+
   alert("Marca eliminada correctamente.");
 }
 
 $("listaMarcas").addEventListener("click",evento=>{
   const boton=evento.target.closest(".btn-eliminar-marca");
-  if(boton) eliminarMarca(boton.dataset.marca);
+
+  if(boton) {
+    eliminarMarca(boton.dataset.marca);
+  }
 });
 
-// FOTOGRAFÍAS
+// FOTOGRAFÍAS EN SUPABASE STORAGE
 function mostrarPreview(imagen) {
   $("preview").hidden=!imagen;
   $("sinFoto").hidden=!!imagen;
 
-  if(imagen) $("preview").src=imagen;
-  else $("preview").removeAttribute("src");
+  if(imagen) {
+    $("preview").src=imagen;
+  } else {
+    $("preview").removeAttribute("src");
+  }
 }
 
 $("imagen").addEventListener("change",evento=>{
   const archivo=evento.target.files[0];
+
   if(!archivo) return;
 
   if(!archivo.type.startsWith("image/")) {
@@ -585,80 +575,152 @@ $("imagen").addEventListener("change",evento=>{
   }
 
   if(archivo.size>1024*1024) {
-    alert("Utiliza una imagen de menos de 1 MB.");
+    alert("Utiliza una imagen de máximo 1 MB.");
     evento.target.value="";
     return;
   }
 
-  const lector=new FileReader();
-  lector.onload=()=>{
-    imagenActual=lector.result;
-    mostrarPreview(imagenActual);
-  };
-  lector.readAsDataURL(archivo);
+  archivoPendiente=archivo;
+
+  // La fotografía se sube al guardar.
+  mostrarPreview(URL.createObjectURL(archivo));
 });
 
-// LIMPIAR FORMULARIO
 function limpiarFormulario() {
   $("formProducto").reset();
   $("productoId").value="";
   $("tituloFormulario").textContent="Agregar producto";
+  archivoPendiente=null;
   imagenActual="";
   mostrarPreview("");
 }
 
+async function subirFotografia(archivo) {
+  const extension=(
+    archivo.name.split(".").pop()||"jpg"
+  ).toLowerCase().replace(/[^a-z0-9]/g,"");
+
+  const ruta=
+    `catalogo/${crypto.randomUUID()}.${extension||"jpg"}`;
+
+  const {error}=await db.storage
+    .from(BUCKET)
+    .upload(ruta,archivo,{
+      contentType:archivo.type,
+      upsert:false
+    });
+
+  if(error) throw error;
+
+  const {data}=db.storage
+    .from(BUCKET)
+    .getPublicUrl(ruta);
+
+  return {
+    url:data.publicUrl,
+    ruta
+  };
+}
+
+function rutaImagenPropia(url) {
+  const prefijo=
+    URL_SUPABASE+
+    "/storage/v1/object/public/"+
+    BUCKET+"/";
+
+  if(!url?.startsWith(prefijo)) {
+    return null;
+  }
+
+  return decodeURIComponent(
+    url.slice(prefijo.length).split("?")[0]
+  );
+}
+
+async function eliminarFotografiaSiPropia(url) {
+  const ruta=rutaImagenPropia(url);
+
+  if(!ruta) return;
+
+  const {error}=await db.storage
+    .from(BUCKET)
+    .remove([ruta]);
+
+  if(error) {
+    console.warn(
+      "No se pudo eliminar la fotografía anterior:",
+      error
+    );
+  }
+}
+
 // MOSTRAR PRODUCTOS
 function renderizar() {
-  const busqueda=$("buscar").value.toLowerCase().trim();
+  const busqueda=$("buscar").value
+    .toLowerCase()
+    .trim();
 
-  const filtrados=productos.filter(producto=>(
-    String(producto.nombre??"")+" "+
-    String(producto.marca??"")+" "+
-    String(producto.descripcion??"")
+  const filtrados=productos.filter(p=>(
+    String(p.nombre??"")+" "+
+    String(p.marca??"")+" "+
+    String(p.descripcion??"")
   ).toLowerCase().includes(busqueda));
 
-  $("contador").textContent=productos.length+" productos";
+  $("contador").textContent=
+    productos.length+" productos";
+
   actualizarMarcas();
 
-  $("listaProductos").innerHTML=filtrados.map(producto=>`
+  $("listaProductos").innerHTML=filtrados.map(p=>`
     <article class="producto-admin">
+
       <div class="foto-admin">
         ${
-          producto.imagen
-          ? `<img src="${escapar(producto.imagen)}" alt="">`
+          p.imagen
+          ? `<img src="${escapar(p.imagen)}" alt="">`
           : `<span>📦</span>`
         }
       </div>
+
       <div class="datos-admin">
-        <strong>${escapar(producto.nombre)}</strong>
-        <small>${escapar(producto.marca)}</small>
+        <strong>${escapar(p.nombre)}</strong>
+        <small>${escapar(p.marca)}</small>
+
         ${
-          producto.descripcion
-          ? `<span class="descripcion-admin">${escapar(producto.descripcion)}</span>`
+          p.descripcion
+          ? `<span class="descripcion-admin">
+               ${escapar(p.descripcion)}
+             </span>`
           : ""
         }
+
         <p>
-          Kilo: ${dinero(producto.kilo)}
-          · Pieza: ${dinero(producto.pieza)}
+          Kilo: ${dinero(p.kilo)}
+          · Pieza: ${dinero(p.pieza)}
         </p>
       </div>
+
       <div class="botones-admin">
-        <button data-editar="${producto.id}">Editar</button>
-        <button class="eliminar" data-eliminar="${producto.id}">
+        <button data-editar="${p.id}">Editar</button>
+        <button class="eliminar" data-eliminar="${p.id}">
           Eliminar
         </button>
       </div>
+
     </article>
   `).join("");
 
-  if(!filtrados.length)
+  if(!filtrados.length) {
     $("listaProductos").innerHTML=
       "<p>No hay productos para mostrar.</p>";
+  }
 }
 
 // GUARDAR O EDITAR PRODUCTOS
-$("formProducto").addEventListener("submit",evento=>{
+$("formProducto").addEventListener("submit",async evento=>{
   evento.preventDefault();
+
+  if(guardando) return;
 
   const nombre=$("nombre").value.trim();
   const marca=$("marca").value.trim();
@@ -667,102 +729,198 @@ $("formProducto").addEventListener("submit",evento=>{
   const pieza=$("pieza").value;
 
   if(!nombre || !marca) {
-    alert("Completa el nombre y la marca.");
-    return;
+    return alert("Completa el nombre y la marca.");
   }
 
   if(kilo==="" && pieza==="") {
-    alert("Indica al menos un precio.");
-    return;
+    return alert("Indica al menos un precio.");
   }
 
   const idExistente=$("productoId").value;
 
-  const datos={
-    nombre,
-    marca,
-    descripcion,
-    kilo:kilo===""?null:Number(kilo),
-    pieza:pieza===""?null:Number(pieza),
-    imagen:imagenActual
-  };
+  const anterior=idExistente
+    ? productos.find(p=>String(p.id)===idExistente)
+    : null;
 
-  const anteriores=productos.slice();
-
-  if(idExistente) {
-    const id=Number(idExistente);
-    productos=productos.map(producto=>
-      Number(producto.id)===id
-      ? {...producto,...datos}
-      : producto
+  if(idExistente && !anterior) {
+    return alert(
+      "No se encontró el producto para editar."
     );
-  } else {
-    productos.push({
-      id:Date.now(),
-      ...datos
-    });
   }
 
-  if(!guardarProductos()) {
-    productos=anteriores;
-    return;
-  }
+  guardando=true;
 
-  limpiarFormulario();
-  renderizar();
-  alert("Producto guardado correctamente.");
+  const boton=$("formProducto")
+    .querySelector('[type="submit"]');
+
+  boton.disabled=true;
+  boton.textContent="Guardando...";
+
+  let subida=null;
+
+  try {
+    let imagen=imagenActual;
+
+    if(archivoPendiente) {
+      subida=await subirFotografia(archivoPendiente);
+      imagen=subida.url;
+    }
+
+    const datos={
+      nombre,
+      marca,
+      descripcion,
+      kilo:kilo===""?null:Number(kilo),
+      pieza:pieza===""?null:Number(pieza),
+      imagen
+    };
+
+    const resultado=idExistente
+      ? await db.from("productos")
+          .update(datos)
+          .eq("id",Number(idExistente))
+          .select("id")
+          .single()
+      : await db.from("productos")
+          .insert(datos)
+          .select("id")
+          .single();
+
+    if(resultado.error) {
+      throw resultado.error;
+    }
+
+    if(
+      anterior &&
+      subida &&
+      anterior.imagen &&
+      anterior.imagen!==imagen
+    ) {
+      await eliminarFotografiaSiPropia(anterior.imagen);
+    }
+
+    limpiarFormulario();
+
+    await cargarDatos();
+
+    alert(
+      "Producto guardado correctamente en Supabase."
+    );
+
+  } catch(error) {
+    if(subida) {
+      await eliminarFotografiaSiPropia(subida.url);
+    }
+
+    mostrarError(
+      error,
+      "No se pudo guardar el producto"
+    );
+
+  } finally {
+    guardando=false;
+    boton.disabled=false;
+    boton.textContent="Guardar producto";
+  }
 });
 
-// EDITAR Y ELIMINAR
-$("listaProductos").addEventListener("click",evento=>{
+// EDITAR Y ELIMINAR PRODUCTOS
+$("listaProductos").addEventListener("click",async evento=>{
   const editar=evento.target.closest("[data-editar]");
   const eliminar=evento.target.closest("[data-eliminar]");
 
   if(editar) {
-    const id=Number(editar.dataset.editar);
-    const producto=productos.find(
-      producto=>Number(producto.id)===id
+    const p=productos.find(
+      p=>String(p.id)===editar.dataset.editar
     );
 
-    if(!producto) return;
+    if(!p) return;
 
-    $("productoId").value=producto.id;
-    $("nombre").value=producto.nombre;
-    $("marca").value=producto.marca;
-    $("descripcion").value=producto.descripcion??"";
-    $("kilo").value=producto.kilo??"";
-    $("pieza").value=producto.pieza??"";
+    $("productoId").value=p.id;
+    $("nombre").value=p.nombre;
+    $("marca").value=p.marca;
+    $("descripcion").value=p.descripcion??"";
+    $("kilo").value=p.kilo??"";
+    $("pieza").value=p.pieza??"";
 
-    imagenActual=producto.imagen||"";
+    $("imagen").value="";
+    archivoPendiente=null;
+    imagenActual=p.imagen||"";
+
     mostrarPreview(imagenActual);
 
     $("tituloFormulario").textContent="Editar producto";
-    window.scrollTo({top:0,behavior:"smooth"});
+
+    window.scrollTo({
+      top:0,
+      behavior:"smooth"
+    });
   }
 
   if(eliminar) {
-    const id=Number(eliminar.dataset.eliminar);
-    if(!confirm("¿Eliminar este producto?")) return;
-
-    const anteriores=productos.slice();
-    productos=productos.filter(
-      producto=>Number(producto.id)!==id
+    const p=productos.find(
+      p=>String(p.id)===eliminar.dataset.eliminar
     );
 
-    if(!guardarProductos()) {
-      productos=anteriores;
+    if(
+      !p ||
+      !confirm("¿Eliminar este producto?")
+    ) {
       return;
     }
 
-    renderizar();
+    const {data,error}=await db.from("productos")
+      .delete()
+      .eq("id",p.id)
+      .select("id");
+
+    if(error) {
+      return mostrarError(
+        error,
+        "No se pudo eliminar el producto"
+      );
+    }
+
+    if(!data?.length) {
+      return alert(
+        "No se eliminó el producto. Verifica los permisos."
+      );
+    }
+
+    if(p.imagen) {
+      await eliminarFotografiaSiPropia(p.imagen);
+    }
+
+    if(
+      String($("productoId").value)===
+      String(p.id)
+    ) {
+      limpiarFormulario();
+    }
+
+    try {
+      await cargarDatos();
+    } catch(e) {
+      mostrarError(
+        e,
+        "No se pudo actualizar la lista"
+      );
+    }
   }
 });
 
 // CANCELAR Y BUSCAR
-$("cancelar").addEventListener("click",limpiarFormulario);
-$("buscar").addEventListener("input",renderizar);
+$("cancelar").addEventListener(
+  "click",
+  limpiarFormulario
+);
 
-// EXPORTAR RESPALDO
+$("buscar").addEventListener(
+  "input",
+  renderizar
+);
+
+// EXPORTAR RESPALDO JSON
 $("exportar").addEventListener("click",()=>{
   const archivo=new Blob(
     [JSON.stringify(productos,null,2)],
@@ -771,16 +929,34 @@ $("exportar").addEventListener("click",()=>{
 
   const url=URL.createObjectURL(archivo);
   const enlace=document.createElement("a");
+
   enlace.href=url;
   enlace.download="respaldo-los-gueros.json";
   enlace.click();
 
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+  setTimeout(()=>{
+    URL.revokeObjectURL(url);
+  },1000);
 });
 
-// INICIAR
-actualizarSesion();
-renderizar();
+// RECUPERAR SESIÓN AL ABRIR ADMINISTRADOR
+(async()=>{
+  try {
+    const {data,error}=await db.auth.getSession();
+
+    if(error) throw error;
+
+    await abrirSesion(data.session);
+
+  } catch(error) {
+    console.error(error);
+    bloquear(true);
+
+    $("mensajeAcceso").textContent=
+      "No se pudo comprobar la sesión: "+
+      error.message;
+  }
+})();
 </script>
 </body>
 </html>
