@@ -1,0 +1,786 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Administrador | Los Güeros</title>
+<link rel="stylesheet" href="admin.css">
+<style>
+[hidden]{display:none!important}
+body.bloqueado>.admin-header,
+body.bloqueado>.admin-container,
+body.bloqueado>#panelCredenciales{display:none!important}
+.pantalla-acceso{min-height:100vh;display:flex;justify-content:center;align-items:center;background:#f3f4f6;padding:20px;font-family:Arial,sans-serif}
+.caja-acceso{width:100%;max-width:410px;padding:32px;background:white;border-radius:14px;border-top:6px solid #b60202;box-shadow:0 12px 35px #0002}
+.caja-acceso h1{color:#b60202;margin:0 0 8px}
+.caja-acceso p{color:#666;font-size:14px}
+.caja-acceso label,.panel-credenciales label{display:block;margin:16px 0 7px;font-weight:bold;font-size:13px}
+.caja-acceso input,.panel-credenciales input{width:100%;box-sizing:border-box;padding:13px;border:1px solid #ccc;border-radius:7px;font-size:15px}
+.caja-acceso button,.btn-credenciales{background:#b60202;color:white;border:0;border-radius:7px;padding:13px 18px;font-weight:bold;cursor:pointer}
+.caja-acceso button{width:100%;margin-top:22px}
+.mensaje-acceso{color:#b60202!important;min-height:18px}
+.acciones-sesion{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.acciones-sesion button{background:white;color:#a40000;border:1px solid #ddd;border-radius:7px;padding:10px 12px;font-weight:bold;cursor:pointer}
+.panel-credenciales{max-width:600px;margin:20px auto}
+.panel-credenciales form{display:grid;gap:8px}
+.acciones-credenciales{display:flex;gap:10px;margin-top:12px}
+#mensajeCredenciales{font-size:13px;color:#a40000}
+#descripcion{width:100%;box-sizing:border-box;min-height:100px;padding:12px;border:1px solid #ccc;border-radius:7px;font:inherit;resize:vertical}
+.descripcion-admin{display:block;margin-top:6px;color:#555;font-size:12px;white-space:pre-line;overflow-wrap:anywhere}
+</style>
+</head>
+<body class="bloqueado">
+
+<!-- INICIO DE SESIÓN -->
+<section id="pantallaAcceso" class="pantalla-acceso">
+<form id="formAcceso" class="caja-acceso">
+<h1>LOS GÜEROS</h1>
+<p>Acceso exclusivo para administración</p>
+<label for="usuarioAcceso">Usuario</label>
+<input id="usuarioAcceso" autocomplete="username" required>
+<label for="claveAcceso">Contraseña</label>
+<input type="password" id="claveAcceso" autocomplete="current-password" required>
+<button type="submit">Iniciar sesión</button>
+<p id="mensajeAcceso" class="mensaje-acceso" role="alert"></p>
+</form>
+</section>
+
+<!-- ENCABEZADO -->
+<header class="admin-header">
+<div>
+<h1>LOS GÜEROS</h1>
+<p>Panel de administración</p>
+</div>
+<div class="acciones-sesion">
+<a href="index.html" target="_blank">Ver catálogo</a>
+<button type="button" id="abrirCredenciales">Cambiar acceso</button>
+<button type="button" id="cerrarSesion">Cerrar sesión</button>
+</div>
+</header>
+
+<!-- CAMBIAR ACCESO -->
+<section id="panelCredenciales" class="panel panel-credenciales" hidden>
+<h2>Cambiar usuario y contraseña</h2>
+<p>Los cambios se guardarán en este navegador. Si utilizas otro dispositivo, conservará las credenciales iniciales.</p>
+<form id="formCredenciales">
+<label for="usuarioActual">Usuario actual</label>
+<input id="usuarioActual" required>
+<label for="claveActual">Contraseña actual</label>
+<input type="password" id="claveActual" required>
+<label for="usuarioNuevo">Nuevo usuario</label>
+<input id="usuarioNuevo" minlength="4" required>
+<label for="claveNueva">Nueva contraseña (mínimo 12 caracteres)</label>
+<input type="password" id="claveNueva" minlength="12" required>
+<div class="acciones-credenciales">
+<button type="submit" class="btn-credenciales">Guardar cambios</button>
+<button type="button" id="cancelarCredenciales">Cancelar</button>
+</div>
+<p id="mensajeCredenciales" role="status"></p>
+</form>
+</section>
+
+<!-- ADMINISTRADOR -->
+<main class="admin-container">
+<div class="columna-formularios">
+
+<section class="panel">
+<h2 id="tituloFormulario">Agregar producto</h2>
+<form id="formProducto">
+<input type="hidden" id="productoId">
+
+<label for="nombre">Nombre del producto</label>
+<input id="nombre" required placeholder="Ej. Oaxaca Los Güeros">
+
+<label for="marca">Marca o categoría</label>
+<input id="marca" required list="marcas" placeholder="Ej. La Barca">
+<datalist id="marcas"></datalist>
+
+<!-- NUEVO: DESCRIPCIÓN -->
+<label for="descripcion">Descripción del producto (opcional)</label>
+<textarea id="descripcion" maxlength="1000"
+placeholder="Ej. Queso de pasta hilada, ideal para quesadillas y gratinados."></textarea>
+
+<div class="dos-columnas">
+<div>
+<label for="kilo">Precio por kilo ($)</label>
+<input type="number" id="kilo" min="0" step="0.01" placeholder="Opcional">
+</div>
+<div>
+<label for="pieza">Precio por pieza ($)</label>
+<input type="number" id="pieza" min="0" step="0.01" placeholder="Opcional">
+</div>
+</div>
+
+<label for="imagen">Fotografía del producto</label>
+<input type="file" id="imagen" accept="image/*">
+<div class="imagen-preview">
+<img id="preview" alt="Vista previa" hidden>
+<span id="sinFoto">Sin fotografía</span>
+</div>
+
+<div class="acciones">
+<button type="submit" class="btn-principal">Guardar producto</button>
+<button type="button" id="cancelar" class="btn-secundario">Cancelar</button>
+</div>
+</form>
+</section>
+
+<!-- MARCAS -->
+<section class="panel panel-marcas">
+<h2>Administrar marcas</h2>
+<p class="descripcion-marcas">Agrega nuevas marcas o elimina las que ya no necesitas.</p>
+<form id="formMarca">
+<label for="nuevaMarca">Nombre de la nueva marca</label>
+<input type="text" id="nuevaMarca" placeholder="Ej. Nochebuena" maxlength="80" required>
+<button type="submit" class="btn-principal btn-agregar-marca">+ Agregar marca</button>
+</form>
+<h3 class="subtitulo-marcas">Marcas registradas</h3>
+<div id="listaMarcas" class="lista-marcas"></div>
+</section>
+
+</div>
+
+<!-- LISTADO DE PRODUCTOS -->
+<section class="panel">
+<div class="titulo-lista">
+<div>
+<h2>Productos registrados</h2>
+<p id="contador"></p>
+</div>
+<button type="button" id="exportar" class="btn-secundario">Exportar respaldo</button>
+</div>
+<input type="search" id="buscar" placeholder="Buscar por nombre o marca...">
+<div id="listaProductos"></div>
+</section>
+</main>
+
+<script>
+"use strict";
+
+// CONFIGURACIÓN ORIGINAL
+const CLAVE = "losGuerosProductos";
+const CLAVE_MARCAS = "losGuerosMarcas";
+const CLAVE_LOGIN = "losGuerosCredencialesV1";
+const CLAVE_SESION = "losGuerosSesionV1";
+const $ = id => document.getElementById(id);
+
+// ACCESO ORIGINAL
+const LOGIN_INICIAL = {
+  u:"6e9dbc8b0e9c76541d573b5fc46023b31741991d967667af060b5a4845626685",
+  p:"8da0cdc775e42c515af4f6bd4ed51fca957f59041f8cf45ebff4fd9a3e8bf7b9"
+};
+
+async function hashSHA256(texto) {
+  const datos = new TextEncoder().encode(texto);
+  const resultado = await crypto.subtle.digest("SHA-256",datos);
+  return Array.from(new Uint8Array(resultado))
+    .map(byte=>byte.toString(16).padStart(2,"0"))
+    .join("");
+}
+
+function obtenerCredenciales() {
+  try {
+    const datos=JSON.parse(localStorage.getItem(CLAVE_LOGIN));
+    if(datos &&
+       /^[a-f0-9]{64}$/.test(datos.u) &&
+       /^[a-f0-9]{64}$/.test(datos.p)) return datos;
+  } catch(error) {console.error(error)}
+  return LOGIN_INICIAL;
+}
+
+async function validarCredenciales(usuario,clave) {
+  const credenciales=obtenerCredenciales();
+  const hashUsuario=await hashSHA256(
+    "LG-USER-v1:"+usuario.trim().toLowerCase()
+  );
+  const hashClave=await hashSHA256("LG-PASS-v1:"+clave);
+  return hashUsuario===credenciales.u &&
+         hashClave===credenciales.p;
+}
+
+function actualizarSesion() {
+  const activa=sessionStorage.getItem(CLAVE_SESION)==="1";
+  document.body.classList.toggle("bloqueado",!activa);
+  $("pantallaAcceso").hidden=activa;
+  if(!activa) {
+    $("panelCredenciales").hidden=true;
+    $("claveAcceso").value="";
+  }
+}
+
+$("formAcceso").addEventListener("submit",async evento=>{
+  evento.preventDefault();
+  try {
+    const valido=await validarCredenciales(
+      $("usuarioAcceso").value,
+      $("claveAcceso").value
+    );
+    if(!valido) {
+      $("mensajeAcceso").textContent=
+        "Usuario o contraseña incorrectos.";
+      return;
+    }
+    sessionStorage.setItem(CLAVE_SESION,"1");
+    $("mensajeAcceso").textContent="";
+    $("formAcceso").reset();
+    actualizarSesion();
+  } catch(error) {
+    console.error(error);
+    $("mensajeAcceso").textContent=
+      "No se pudo verificar el acceso. Abre la página desde HTTPS o localhost.";
+  }
+});
+
+$("cerrarSesion").addEventListener("click",()=>{
+  sessionStorage.removeItem(CLAVE_SESION);
+  actualizarSesion();
+});
+
+$("abrirCredenciales").addEventListener("click",()=>{
+  $("panelCredenciales").hidden=false;
+  $("mensajeCredenciales").textContent="";
+  $("panelCredenciales").scrollIntoView({behavior:"smooth"});
+});
+
+$("cancelarCredenciales").addEventListener("click",()=>{
+  $("panelCredenciales").hidden=true;
+  $("formCredenciales").reset();
+});
+
+$("formCredenciales").addEventListener("submit",async evento=>{
+  evento.preventDefault();
+  try {
+    const valido=await validarCredenciales(
+      $("usuarioActual").value,
+      $("claveActual").value
+    );
+    if(!valido) {
+      $("mensajeCredenciales").textContent=
+        "Las credenciales actuales son incorrectas.";
+      return;
+    }
+    const nuevoUsuario=$("usuarioNuevo").value.trim();
+    const nuevaClave=$("claveNueva").value;
+    if(nuevoUsuario.length<4 || nuevaClave.length<12) {
+      $("mensajeCredenciales").textContent=
+        "Usuario mínimo 4 caracteres; contraseña mínimo 12.";
+      return;
+    }
+    const nuevosDatos={
+      u:await hashSHA256(
+        "LG-USER-v1:"+nuevoUsuario.toLowerCase()
+      ),
+      p:await hashSHA256("LG-PASS-v1:"+nuevaClave)
+    };
+    localStorage.setItem(CLAVE_LOGIN,JSON.stringify(nuevosDatos));
+    $("formCredenciales").reset();
+    alert("Credenciales cambiadas correctamente. Inicia sesión nuevamente.");
+    sessionStorage.removeItem(CLAVE_SESION);
+    actualizarSesion();
+  } catch(error) {
+    console.error(error);
+    $("mensajeCredenciales").textContent=
+      "No se pudieron guardar las credenciales.";
+  }
+});
+
+// PRODUCTOS INICIALES ORIGINALES
+const PRODUCTOS_INICIALES=[
+["Marca Propia","Oaxaca Los Güeros",111,null],
+["Marca Propia","Oaxaca Económico",93,null],
+["Marca Propia","Rallado Plus",45,null],
+["Marca Propia","Panela Volcanes 1kg",null,135],
+["Marca Propia","Panela Volcanes 3kg",135,null],
+["Marca Propia","Cotija",106,null],
+["Marca Propia","Yakult",null,339],
+["Marca Propia","Manchego Noche Buena 3kg",160,null],
+["Marca Propia","Manchego Noche Buena 4kg",163,null],
+["Marca Propia","Gouda Campesina",145,null],
+["Marca Propia","Longaniza Güeros",65,null],
+["La Barca","Jamón Pierna Fino (Tortugo y Mandolina)",116,null],
+["La Barca","Jamón de Pavo",116,null],
+["La Barca","Tocino Especial",112,null],
+["D'Patrón","Jamón de Pierna Premium (Negro)",123,null],
+["D'Patrón","Jamón de Pierna Preferente (Azul)",106.5,null],
+["D'Patrón","Tocino Delis",110,null],
+["Chilchota","Panela Sello de Oro",126,null],
+["Chilchota","Panela Durangueño",112,null],
+["Chilchota","Sello de Oro",127,null],
+["Chilchota","Canasto Durangueño",116,null],
+["Chilchota","Doble Crema",120,null],
+["Chilchota","Doble Crema 1/2",247,null],
+["Galicia","Jamón de Pierna (Mandolina)",null,600],
+["Galicia","Jamón de Pavo",null,380],
+["Galicia","Queso de Puerco",null,390],
+["Galicia","Jamón de Pierna Horneado (Ovalado)",null,490],
+["Manantiales","Pechuga de Pavo (Ahumada, Natural)",null,345],
+["FUD","Jamón de Pierna",null,600],
+["FUD","Jamón de Pavo Virginia",null,540],
+["FUD","Panela FUD",null,115],
+["FUD","Salchicha de Pavo (2.7kg)",null,155],
+["Alpura","Crema Alpura 1/2",null,800],
+["Alpura","Crema Alpura 1/4",null,400],
+["Alpura","Cubeta Alpura 4L",null,230]
+];
+
+// CARGAR Y GUARDAR PRODUCTOS
+function cargarProductos() {
+  const guardados=localStorage.getItem(CLAVE);
+  if(guardados!==null) {
+    try {
+      const datos=JSON.parse(guardados);
+      if(Array.isArray(datos)) return datos;
+    } catch(error) {console.error(error)}
+  }
+  const iniciales=PRODUCTOS_INICIALES.map((p,i)=>({
+    id:i+1,
+    marca:p[0],
+    nombre:p[1],
+    kilo:p[2],
+    pieza:p[3],
+    imagen:"",
+    descripcion:""
+  }));
+  localStorage.setItem(CLAVE,JSON.stringify(iniciales));
+  return iniciales;
+}
+
+let productos=cargarProductos();
+let imagenActual="";
+
+function guardarProductos() {
+  try {
+    localStorage.setItem(CLAVE,JSON.stringify(productos));
+    return true;
+  } catch(error) {
+    console.error(error);
+    alert("No se pudieron guardar los productos. Puede que la imagen sea demasiado grande.");
+    return false;
+  }
+}
+
+// FUNCIONES GENERALES
+function escapar(texto) {
+  return String(texto??"").replace(
+    /[&<>"']/g,
+    caracter=>({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#39;"
+    })[caracter]
+  );
+}
+
+function dinero(valor) {
+  if(valor===null || valor===undefined || valor==="") return "—";
+  return Number(valor).toLocaleString("es-MX",{
+    style:"currency",
+    currency:"MXN"
+  });
+}
+
+function normalizarMarca(nombre) {
+  return String(nombre??"").trim().toLocaleLowerCase("es");
+}
+
+// MARCAS
+function cargarMarcas() {
+  try {
+    const datos=JSON.parse(localStorage.getItem(CLAVE_MARCAS));
+    if(Array.isArray(datos))
+      return datos.filter(marca=>typeof marca==="string");
+  } catch(error) {console.error(error)}
+  return [];
+}
+
+let marcasGuardadas=cargarMarcas();
+
+function obtenerMarcas() {
+  const nombres=[
+    ...marcasGuardadas,
+    ...productos.map(producto=>producto.marca)
+  ];
+  const unicas=new Map();
+
+  nombres.forEach(nombre=>{
+    const limpio=String(nombre??"").trim();
+    if(!limpio) return;
+    const clave=normalizarMarca(limpio);
+    if(!unicas.has(clave)) unicas.set(clave,limpio);
+  });
+
+  return [...unicas.values()].sort(
+    (a,b)=>a.localeCompare(b,"es")
+  );
+}
+
+function guardarMarcas() {
+  try {
+    localStorage.setItem(
+      CLAVE_MARCAS,
+      JSON.stringify(marcasGuardadas)
+    );
+    return true;
+  } catch(error) {
+    console.error(error);
+    alert("No se pudieron guardar las marcas.");
+    return false;
+  }
+}
+
+function contarProductosMarca(marca) {
+  return productos.filter(
+    producto=>
+      normalizarMarca(producto.marca)===
+      normalizarMarca(marca)
+  ).length;
+}
+
+function actualizarMarcas() {
+  const contenedor=$("marcas");
+  contenedor.replaceChildren();
+
+  obtenerMarcas().forEach(marca=>{
+    const opcion=document.createElement("option");
+    opcion.value=marca;
+    contenedor.appendChild(opcion);
+  });
+
+  mostrarMarcas();
+}
+
+function mostrarMarcas() {
+  const contenedor=$("listaMarcas");
+  contenedor.replaceChildren();
+  const marcas=obtenerMarcas();
+
+  if(!marcas.length) {
+    const mensaje=document.createElement("p");
+    mensaje.textContent="Todavía no hay marcas registradas.";
+    contenedor.appendChild(mensaje);
+    return;
+  }
+
+  marcas.forEach(marca=>{
+    const cantidad=contarProductosMarca(marca);
+    const elemento=document.createElement("div");
+    elemento.className="marca-item";
+
+    const informacion=document.createElement("div");
+    informacion.className="marca-informacion";
+
+    const nombre=document.createElement("strong");
+    nombre.textContent=marca;
+
+    const contador=document.createElement("small");
+    contador.textContent=cantidad===1
+      ? "1 producto"
+      : cantidad+" productos";
+
+    informacion.append(nombre,contador);
+
+    const boton=document.createElement("button");
+    boton.type="button";
+    boton.className="btn-eliminar-marca";
+    boton.textContent="Eliminar";
+    boton.dataset.marca=marca;
+
+    elemento.append(informacion,boton);
+    contenedor.appendChild(elemento);
+  });
+}
+
+$("formMarca").addEventListener("submit",evento=>{
+  evento.preventDefault();
+  const nombre=$("nuevaMarca").value.trim();
+
+  if(!nombre) {
+    alert("Escribe el nombre de la marca.");
+    return;
+  }
+
+  const existe=obtenerMarcas().some(
+    marca=>normalizarMarca(marca)===normalizarMarca(nombre)
+  );
+
+  if(existe) {
+    alert("Esta marca ya está registrada.");
+    return;
+  }
+
+  marcasGuardadas.push(nombre);
+
+  if(!guardarMarcas()) {
+    marcasGuardadas.pop();
+    return;
+  }
+
+  $("marca").value=nombre;
+  $("nuevaMarca").value="";
+  actualizarMarcas();
+  alert("Marca agregada correctamente.");
+});
+
+function eliminarMarca(nombreMarca) {
+  const cantidad=contarProductosMarca(nombreMarca);
+
+  if(cantidad>0) {
+    alert(
+      'No puedes eliminar "'+nombreMarca+
+      '" porque tiene '+cantidad+
+      " productos registrados.\n\n"+
+      "Primero cambia esos productos de marca o elimínalos."
+    );
+    return;
+  }
+
+  if(!confirm('¿Eliminar la marca "'+nombreMarca+'"?')) return;
+
+  const anteriores=[...marcasGuardadas];
+
+  marcasGuardadas=marcasGuardadas.filter(
+    marca=>normalizarMarca(marca)!==
+           normalizarMarca(nombreMarca)
+  );
+
+  if(!guardarMarcas()) {
+    marcasGuardadas=anteriores;
+    return;
+  }
+
+  if(normalizarMarca($("marca").value)===
+     normalizarMarca(nombreMarca)) {
+    $("marca").value="";
+  }
+
+  actualizarMarcas();
+  alert("Marca eliminada correctamente.");
+}
+
+$("listaMarcas").addEventListener("click",evento=>{
+  const boton=evento.target.closest(".btn-eliminar-marca");
+  if(boton) eliminarMarca(boton.dataset.marca);
+});
+
+// FOTOGRAFÍAS
+function mostrarPreview(imagen) {
+  $("preview").hidden=!imagen;
+  $("sinFoto").hidden=!!imagen;
+
+  if(imagen) $("preview").src=imagen;
+  else $("preview").removeAttribute("src");
+}
+
+$("imagen").addEventListener("change",evento=>{
+  const archivo=evento.target.files[0];
+  if(!archivo) return;
+
+  if(!archivo.type.startsWith("image/")) {
+    alert("Selecciona una imagen válida.");
+    evento.target.value="";
+    return;
+  }
+
+  if(archivo.size>1024*1024) {
+    alert("Utiliza una imagen de menos de 1 MB.");
+    evento.target.value="";
+    return;
+  }
+
+  const lector=new FileReader();
+  lector.onload=()=>{
+    imagenActual=lector.result;
+    mostrarPreview(imagenActual);
+  };
+  lector.readAsDataURL(archivo);
+});
+
+// LIMPIAR FORMULARIO
+function limpiarFormulario() {
+  $("formProducto").reset();
+  $("productoId").value="";
+  $("tituloFormulario").textContent="Agregar producto";
+  imagenActual="";
+  mostrarPreview("");
+}
+
+// MOSTRAR PRODUCTOS
+function renderizar() {
+  const busqueda=$("buscar").value.toLowerCase().trim();
+
+  const filtrados=productos.filter(producto=>(
+    String(producto.nombre??"")+" "+
+    String(producto.marca??"")+" "+
+    String(producto.descripcion??"")
+  ).toLowerCase().includes(busqueda));
+
+  $("contador").textContent=productos.length+" productos";
+  actualizarMarcas();
+
+  $("listaProductos").innerHTML=filtrados.map(producto=>`
+    <article class="producto-admin">
+      <div class="foto-admin">
+        ${
+          producto.imagen
+          ? `<img src="${escapar(producto.imagen)}" alt="">`
+          : `<span>📦</span>`
+        }
+      </div>
+      <div class="datos-admin">
+        <strong>${escapar(producto.nombre)}</strong>
+        <small>${escapar(producto.marca)}</small>
+        ${
+          producto.descripcion
+          ? `<span class="descripcion-admin">${escapar(producto.descripcion)}</span>`
+          : ""
+        }
+        <p>
+          Kilo: ${dinero(producto.kilo)}
+          · Pieza: ${dinero(producto.pieza)}
+        </p>
+      </div>
+      <div class="botones-admin">
+        <button data-editar="${producto.id}">Editar</button>
+        <button class="eliminar" data-eliminar="${producto.id}">
+          Eliminar
+        </button>
+      </div>
+    </article>
+  `).join("");
+
+  if(!filtrados.length)
+    $("listaProductos").innerHTML=
+      "<p>No hay productos para mostrar.</p>";
+}
+
+// GUARDAR O EDITAR PRODUCTOS
+$("formProducto").addEventListener("submit",evento=>{
+  evento.preventDefault();
+
+  const nombre=$("nombre").value.trim();
+  const marca=$("marca").value.trim();
+  const descripcion=$("descripcion").value.trim();
+  const kilo=$("kilo").value;
+  const pieza=$("pieza").value;
+
+  if(!nombre || !marca) {
+    alert("Completa el nombre y la marca.");
+    return;
+  }
+
+  if(kilo==="" && pieza==="") {
+    alert("Indica al menos un precio.");
+    return;
+  }
+
+  const idExistente=$("productoId").value;
+
+  const datos={
+    nombre,
+    marca,
+    descripcion,
+    kilo:kilo===""?null:Number(kilo),
+    pieza:pieza===""?null:Number(pieza),
+    imagen:imagenActual
+  };
+
+  const anteriores=productos.slice();
+
+  if(idExistente) {
+    const id=Number(idExistente);
+    productos=productos.map(producto=>
+      Number(producto.id)===id
+      ? {...producto,...datos}
+      : producto
+    );
+  } else {
+    productos.push({
+      id:Date.now(),
+      ...datos
+    });
+  }
+
+  if(!guardarProductos()) {
+    productos=anteriores;
+    return;
+  }
+
+  limpiarFormulario();
+  renderizar();
+  alert("Producto guardado correctamente.");
+});
+
+// EDITAR Y ELIMINAR
+$("listaProductos").addEventListener("click",evento=>{
+  const editar=evento.target.closest("[data-editar]");
+  const eliminar=evento.target.closest("[data-eliminar]");
+
+  if(editar) {
+    const id=Number(editar.dataset.editar);
+    const producto=productos.find(
+      producto=>Number(producto.id)===id
+    );
+
+    if(!producto) return;
+
+    $("productoId").value=producto.id;
+    $("nombre").value=producto.nombre;
+    $("marca").value=producto.marca;
+    $("descripcion").value=producto.descripcion??"";
+    $("kilo").value=producto.kilo??"";
+    $("pieza").value=producto.pieza??"";
+
+    imagenActual=producto.imagen||"";
+    mostrarPreview(imagenActual);
+
+    $("tituloFormulario").textContent="Editar producto";
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  if(eliminar) {
+    const id=Number(eliminar.dataset.eliminar);
+    if(!confirm("¿Eliminar este producto?")) return;
+
+    const anteriores=productos.slice();
+    productos=productos.filter(
+      producto=>Number(producto.id)!==id
+    );
+
+    if(!guardarProductos()) {
+      productos=anteriores;
+      return;
+    }
+
+    renderizar();
+  }
+});
+
+// CANCELAR Y BUSCAR
+$("cancelar").addEventListener("click",limpiarFormulario);
+$("buscar").addEventListener("input",renderizar);
+
+// EXPORTAR RESPALDO
+$("exportar").addEventListener("click",()=>{
+  const archivo=new Blob(
+    [JSON.stringify(productos,null,2)],
+    {type:"application/json"}
+  );
+
+  const url=URL.createObjectURL(archivo);
+  const enlace=document.createElement("a");
+  enlace.href=url;
+  enlace.download="respaldo-los-gueros.json";
+  enlace.click();
+
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+});
+
+// INICIAR
+actualizarSesion();
+renderizar();
+</script>
+</body>
+</html>

@@ -1,0 +1,643 @@
+
+/* ==========================================
+   DISTRIBUIDORA LOS GÜEROS
+   CATÁLOGO DIGITAL + IMPRESIÓN
+   ========================================== */
+
+:root {
+  --rojo: #bd0000;
+  --rojo-oscuro: #870000;
+  --amarillo: #ffe600;
+  --blanco: #ffffff;
+  --fondo: #f3f4f6;
+  --texto: #202124;
+  --borde: #d9dce1;
+}
+
+/* CONFIGURACIÓN GENERAL */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  color: var(--texto);
+  background: var(--fondo);
+}
+
+/* ==========================================
+   ENCABEZADO DIGITAL
+   ========================================== */
+
+.encabezado {
+  width: 100%;
+  background: #b60202;
+  color: white;
+  padding: 20px 5%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 25px;
+  border-bottom: 7px solid var(--amarillo);
+}
+
+.marca {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1;
+  min-width: 0;
+}
+
+.logo-imagen {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: 320px;
+  max-height: 130px;
+  object-fit: contain;
+}
+
+.vigencia {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: right;
+  font-size: 13px;
+}
+
+.vigencia strong {
+  font-size: 15px;
+}
+
+.vigencia span {
+  opacity: 0.9;
+}
+
+/* ==========================================
+   CONTENEDOR DIGITAL
+   ========================================== */
+
+.contenedor {
+  width: 100%;
+  max-width: 1450px;
+  margin: 0 auto;
+  padding: 25px;
+}
+
+/* BUSCADOR Y FILTROS */
+
+.herramientas {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 25px;
+}
+
+.herramientas input,
+.herramientas select {
+  padding: 13px;
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  background: white;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.herramientas input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.herramientas input:focus,
+.herramientas select:focus {
+  outline: 2px solid var(--rojo);
+  outline-offset: 1px;
+}
+
+.herramientas button {
+  background: var(--rojo);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 13px 22px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.herramientas button:hover {
+  background: var(--rojo-oscuro);
+}
+
+/* ==========================================
+   CATÁLOGO DIGITAL DE TRES COLUMNAS
+   ========================================== */
+
+.catalogo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.tarjeta-marca {
+  background: white;
+  border: 1px solid var(--borde);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.06);
+}
+
+.tarjeta-marca h2 {
+  margin: 0;
+  padding: 13px 15px;
+  background: var(--rojo);
+  color: white;
+  font-size: 15px;
+  font-weight: bold;
+  text-align: center;
+  border-bottom: 5px solid var(--amarillo);
+}
+
+.tarjeta-marca table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tarjeta-marca thead {
+  background: #fff4a8;
+}
+
+.tarjeta-marca th {
+  padding: 10px 5px;
+  font-size: 10px;
+  font-weight: bold;
+  text-align: center;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tarjeta-marca th:first-child {
+  text-align: left;
+  padding-left: 12px;
+}
+
+.tarjeta-marca td {
+  padding: 10px 7px;
+  border-bottom: 1px solid #e8e8e8;
+  vertical-align: middle;
+}
+
+.tarjeta-marca tr:last-child td {
+  border-bottom: none;
+}
+
+.tarjeta-marca tbody tr:nth-child(even) {
+  background: #f7f7f7;
+}
+
+.tarjeta-marca td:not(:first-child) {
+  text-align: center;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+/* PRODUCTOS E IMÁGENES */
+
+.celda-producto {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+/* MODIFICADO: IMÁGENES MÁS GRANDES */
+
+.contenedor-miniatura {
+  width: 90px;
+  height: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.miniatura {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.sin-imagen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #f2f2f2;
+  font-size: 28px;
+}
+
+.informacion-producto {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.nombre-producto {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.peso-producto {
+  display: block;
+  font-size: 11px;
+  font-weight: normal;
+  color: #666;
+  line-height: 1.4;
+}
+
+.tarjeta-marca td.precio {
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.vacio {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 35px;
+  color: #777;
+  font-size: 14px;
+}
+
+/* LISTA IMPRESA OCULTA EN PANTALLA */
+
+.lista-impresion {
+  display: none;
+}
+
+/* PIE DIGITAL */
+
+footer {
+  width: 100%;
+  text-align: center;
+  padding: 25px;
+  background: var(--rojo);
+  color: white;
+  font-size: 13px;
+}
+
+footer p {
+  margin: 5px;
+}
+
+/* ==========================================
+   RESPONSIVO
+   ========================================== */
+
+@media screen and (max-width: 1050px) {
+  .catalogo {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .logo-imagen {
+    max-width: 260px;
+  }
+}
+
+@media screen and (max-width: 650px) {
+  .encabezado {
+    flex-direction: column;
+    text-align: center;
+    padding: 20px;
+  }
+
+  .marca {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .logo-imagen {
+    max-width: 250px;
+    max-height: 110px;
+  }
+
+  .vigencia {
+    text-align: center;
+  }
+
+  .contenedor {
+    padding: 12px;
+  }
+
+  .catalogo {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .herramientas {
+    flex-direction: column;
+  }
+
+  .herramientas input,
+  .herramientas select,
+  .herramientas button {
+    width: 100%;
+  }
+
+  .tarjeta-marca table {
+    font-size: 11px;
+  }
+
+  .tarjeta-marca th {
+    font-size: 10px;
+  }
+
+  /* MODIFICADO: IMÁGENES MÁS GRANDES EN CELULAR */
+
+  .contenedor-miniatura {
+    width: 80px;
+    height: 80px;
+  }
+
+  .peso-producto {
+    font-size: 10px;
+  }
+}
+
+/* ==========================================
+   IMPRESIÓN TAMAÑO OFICIO
+   TODO PROPORCIONAL
+   ========================================== */
+
+@page {
+  size: 216mm 330mm;
+  margin: 5mm;
+}
+
+@media print {
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: white;
+    color: black;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+
+  /* OCULTAR ELEMENTOS DIGITALES */
+
+  .encabezado,
+  .herramientas,
+  .catalogo,
+  .pie-pagina {
+    display: none !important;
+  }
+
+  .contenedor {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  /*
+    CONTENEDOR COMÚN
+
+    El ancho se determina por el contenido
+    de la tabla y se comparte con la cabecera
+    y el pie mediante CSS Grid.
+  */
+
+  .lista-impresion {
+    display: inline-grid !important;
+    grid-template-columns: minmax(0, max-content);
+    width: max-content;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    vertical-align: top;
+  }
+
+  .cabecera-impresion,
+  .tabla-impresion,
+  .pie-impresion {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+  }
+
+  /* ======================================
+     ENCABEZADO IMPRESO
+     ====================================== */
+
+  .cabecera-impresion {
+    display: grid;
+    grid-template-columns: 58% 42%;
+    gap: 0;
+    min-height: 32mm;
+    padding: 0;
+    margin: 0;
+    background: white;
+    border: 1px solid #444;
+    border-bottom: none;
+    break-inside: avoid;
+  }
+
+  .logo-impresion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 3mm;
+    background: #bd0000;
+  }
+
+  .logo-impresion img {
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 26mm;
+    object-fit: contain;
+  }
+
+  .datos-impresion {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 2mm;
+    background: white;
+    color: black;
+    text-align: center;
+    border-left: 1px solid #444;
+  }
+
+  .datos-impresion strong {
+    display: block;
+    font-size: 9pt;
+    font-weight: 800;
+    line-height: 1.15;
+  }
+
+  .datos-impresion p {
+    margin: 2mm 0 0;
+    font-size: 7pt;
+    line-height: 1.15;
+    font-style: italic;
+    text-decoration: underline;
+  }
+
+  /* ======================================
+     TABLA AJUSTADA AL CONTENIDO
+     ====================================== */
+
+  .tabla-impresion {
+    table-layout: auto;
+    border-collapse: collapse;
+    border-spacing: 0;
+    border: 1px solid #444;
+    font-size: 8.5pt;
+    line-height: 1.05;
+  }
+
+  .tabla-impresion thead {
+    display: table-header-group;
+  }
+
+  .tabla-impresion thead th {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    padding: 2px 5px;
+    background: #bd0000;
+    color: white;
+    border: 1px solid #444;
+    font-size: 8pt;
+    font-weight: bold;
+    line-height: 1.1;
+    text-align: center;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  /* QUITAR ANCHOS PORCENTUALES */
+
+  .tabla-impresion thead th:first-child,
+  .tabla-impresion thead th:nth-child(2),
+  .tabla-impresion thead th:nth-child(3),
+  .tabla-impresion thead th:nth-child(4) {
+    width: auto;
+  }
+
+  /* FILAS DE PRODUCTOS */
+
+  .tabla-impresion tbody tr:not(.fila-marca) td {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: auto;
+    margin: 0;
+    padding: 1px 5px;
+    border: 1px solid #777;
+    font-size: 8.5pt;
+    font-weight: 600;
+    line-height: 1.05;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .tabla-impresion tbody tr:not(.fila-marca) td:first-child {
+    text-align: left;
+  }
+
+  .tabla-impresion tbody tr:not(.fila-marca) td:nth-child(2),
+  .tabla-impresion tbody tr:not(.fila-marca) td:nth-child(3),
+  .tabla-impresion tbody tr:not(.fila-marca) td:nth-child(4) {
+    text-align: center;
+  }
+
+  .tabla-impresion .precio-impreso {
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  /* FILAS ALTERNADAS */
+
+  .tabla-impresion tbody tr:not(.fila-marca):nth-child(even) {
+    background: #e4e4e4;
+  }
+
+  /* MARCAS AMARILLAS */
+
+  .tabla-impresion .fila-marca {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .tabla-impresion .fila-marca td {
+    padding: 2px 5px;
+    background: #ffe600 !important;
+    color: black;
+    border: 1px solid #555;
+    font-size: 9pt;
+    font-weight: 800;
+    line-height: 1.05;
+    text-align: center !important;
+    white-space: nowrap;
+  }
+
+  .tabla-impresion tbody tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ======================================
+     PIE IMPRESO
+     ====================================== */
+
+  .pie-impresion {
+    padding: 3px;
+    background: #dedede;
+    color: #111;
+    border: 1px solid #777;
+    border-top: none;
+    text-align: center;
+    font-size: 9pt;
+    font-weight: bold;
+    font-style: italic;
+    text-decoration: underline;
+    line-height: 1.1;
+  }
+
+}

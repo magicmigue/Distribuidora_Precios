@@ -1,0 +1,585 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Distribuidora Los Güeros | Catálogo</title>
+<link rel="stylesheet" href="styles.css">
+
+<style>
+/* NUEVO: DESCRIPCIONES DESPLEGABLES */
+.detalles-producto{
+  margin-top:5px;
+  max-width:100%;
+  font-weight:normal;
+}
+.detalles-producto summary{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:#a40000;
+  font-size:11px;
+  font-weight:bold;
+  cursor:pointer;
+  list-style:none;
+}
+.detalles-producto summary::-webkit-details-marker{
+  display:none;
+}
+.detalles-producto summary::after{
+  content:"⌄";
+  font-size:14px;
+}
+.detalles-producto[open] summary::after{
+  transform:rotate(180deg);
+}
+.texto-descripcion{
+  margin:8px 0 0;
+  padding:9px;
+  border-left:3px solid #bd0000;
+  border-radius:0 6px 6px 0;
+  background:#f8f8f8;
+  color:#444;
+  font-size:11px;
+  line-height:1.5;
+  white-space:pre-line;
+  overflow-wrap:anywhere;
+}
+.detalles-producto summary:focus-visible{
+  outline:2px solid #bd0000;
+  outline-offset:3px;
+}
+@media print{
+  .detalles-producto{display:none!important}
+}
+</style>
+</head>
+
+<body>
+
+<!-- ENCABEZADO PRINCIPAL -->
+<header class="encabezado">
+  <div class="marca">
+    <img
+      src="Logo.png"
+      alt="Distribuidora Los Güeros"
+      class="logo-imagen"
+    >
+  </div>
+</header>
+
+<!-- CONTENIDO PRINCIPAL -->
+<main class="contenedor">
+
+  <!-- HERRAMIENTAS -->
+  <section class="herramientas">
+
+    <input
+      type="search"
+      id="buscador"
+      name="buscador"
+      placeholder="Buscar producto..."
+      aria-label="Buscar producto"
+    >
+
+    <select
+      id="filtroMarca"
+      name="filtroMarca"
+      aria-label="Filtrar por marca"
+    >
+      <option value="">Todas las marcas</option>
+    </select>
+
+    <button type="button" id="btnImprimir">
+      Imprimir catálogo
+    </button>
+
+  </section>
+
+  <!-- CATÁLOGO DIGITAL -->
+  <section
+    id="catalogo"
+    class="catalogo"
+    aria-label="Catálogo de productos"
+  ></section>
+
+  <!-- LISTA EXCLUSIVA PARA IMPRESIÓN -->
+  <section
+    id="listaImpresion"
+    class="lista-impresion"
+    aria-label="Lista de precios imprimible"
+  ></section>
+
+</main>
+
+<!-- PIE DE PÁGINA -->
+<footer class="pie-pagina">
+  <p>Distribuidora Los Güeros</p>
+  <p>Calidad y frescura para tu negocio</p>
+</footer>
+
+<script>
+"use strict";
+
+// CONFIGURACIÓN ORIGINAL
+const CLAVE_PRODUCTOS="losGuerosProductos";
+
+const catalogo=document.getElementById("catalogo");
+const listaImpresion=document.getElementById("listaImpresion");
+const buscador=document.getElementById("buscador");
+const filtroMarca=document.getElementById("filtroMarca");
+const btnImprimir=document.getElementById("btnImprimir");
+
+// CARGAR PRODUCTOS
+function obtenerProductos() {
+  try {
+    const guardados=localStorage.getItem(CLAVE_PRODUCTOS);
+    if(!guardados) return [];
+
+    const datos=JSON.parse(guardados);
+    return Array.isArray(datos)?datos:[];
+  } catch(error) {
+    console.error("Error al cargar productos:",error);
+    return [];
+  }
+}
+
+// FUNCIONES GENERALES
+function escaparHTML(valor) {
+  return String(valor??"")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#39;");
+}
+
+function formatoPrecio(valor) {
+  if(
+    valor===null ||
+    valor===undefined ||
+    valor===""
+  ) return "—";
+
+  const numero=Number(
+    String(valor).replace(/[$,\s]/g,"")
+  );
+
+  if(!Number.isFinite(numero)) {
+    return escaparHTML(valor);
+  }
+
+  return numero.toLocaleString("es-MX",{
+    style:"currency",
+    currency:"MXN"
+  });
+}
+
+function obtenerNombre(producto) {
+  return String(
+    producto.nombre ??
+    producto.producto ??
+    ""
+  );
+}
+
+function obtenerMarca(producto) {
+  return String(
+    producto.marca ??
+    producto.categoria ??
+    "Sin marca"
+  );
+}
+
+function obtenerImagen(producto) {
+  return String(
+    producto.imagen ??
+    producto.foto ??
+    ""
+  );
+}
+
+function obtenerPrecioKilo(producto) {
+  return (
+    producto.precioKilo ??
+    producto.precioKg ??
+    producto.kilo ??
+    ""
+  );
+}
+
+function obtenerPrecioPieza(producto) {
+  return (
+    producto.precioPieza ??
+    producto.pieza ??
+    ""
+  );
+}
+
+// NUEVO: DESCRIPCIÓN DEL PRODUCTO
+function obtenerDescripcion(producto) {
+  return String(producto.descripcion??"").trim();
+}
+
+// COMPATIBILIDAD ORIGINAL DE PESOS
+function obtenerPeso(producto) {
+  const peso=
+    producto.peso ??
+    producto.pesoPromedio ??
+    producto.pesoAproximado ??
+    "";
+
+  if(
+    peso===null ||
+    peso===undefined ||
+    String(peso).trim()===""
+  ) return "";
+
+  const unidad=String(
+    producto.unidadPeso ??
+    producto.unidad ??
+    ""
+  ).trim();
+
+  const tipo=String(
+    producto.tipoPeso ??
+    "aproximado"
+  ).toLowerCase();
+
+  const textoPeso=String(peso).trim();
+
+  const pesoConUnidad=unidad
+    ? `${textoPeso} ${unidad}`
+    : textoPeso;
+
+  if(tipo==="fijo" || tipo==="exacto") {
+    return `Peso: ${pesoConUnidad}`;
+  }
+
+  return `Peso aprox.: ${pesoConUnidad}`;
+}
+
+// IMÁGENES
+function crearImagen(producto) {
+  const imagen=obtenerImagen(producto);
+
+  if(!imagen) {
+    return `
+      <span
+        class="sin-imagen"
+        aria-hidden="true"
+      >🧀</span>
+    `;
+  }
+
+  return `
+    <img
+      class="miniatura"
+      src="${escaparHTML(imagen)}"
+      alt="${escaparHTML(obtenerNombre(producto))}"
+      loading="lazy"
+    >
+  `;
+}
+
+// MARCAS
+function obtenerMarcas(productos) {
+  return [
+    ...new Set(productos.map(obtenerMarca))
+  ].sort((a,b)=>a.localeCompare(b,"es"));
+}
+
+function actualizarFiltro(productos) {
+  const seleccion=filtroMarca.value;
+  const marcas=obtenerMarcas(productos);
+
+  filtroMarca.innerHTML=
+    '<option value="">Todas las marcas</option>';
+
+  marcas.forEach(marca=>{
+    const opcion=document.createElement("option");
+    opcion.value=marca;
+    opcion.textContent=marca;
+    filtroMarca.appendChild(opcion);
+  });
+
+  if(marcas.includes(seleccion)) {
+    filtroMarca.value=seleccion;
+  }
+}
+
+// NUEVO: DESCRIPCIÓN DESPLEGABLE
+function crearDescripcion(producto) {
+  const descripcion=obtenerDescripcion(producto);
+
+  // Si no tiene descripción, no aparece el botón.
+  if(!descripcion) return "";
+
+  return `
+    <details class="detalles-producto">
+      <summary>Ver descripción</summary>
+      <p class="texto-descripcion">
+        ${escaparHTML(descripcion)}
+      </p>
+    </details>
+  `;
+}
+
+// TARJETAS DEL CATÁLOGO
+function crearTarjetaMarca(marca,productos) {
+  const filas=productos.map(producto=>{
+    const nombre=obtenerNombre(producto);
+    const peso=obtenerPeso(producto);
+
+    return `
+      <tr>
+        <td>
+          <div class="celda-producto">
+
+            <div class="contenedor-miniatura">
+              ${crearImagen(producto)}
+            </div>
+
+            <div class="informacion-producto">
+
+              <span class="nombre-producto">
+                ${escaparHTML(nombre)}
+              </span>
+
+              ${
+                peso
+                  ? `<small class="peso-producto">
+                       ${escaparHTML(peso)}
+                     </small>`
+                  : ""
+              }
+
+              ${crearDescripcion(producto)}
+
+            </div>
+
+          </div>
+        </td>
+
+        <td class="precio">
+          ${formatoPrecio(
+            obtenerPrecioKilo(producto)
+          )}
+        </td>
+
+        <td class="precio">
+          ${formatoPrecio(
+            obtenerPrecioPieza(producto)
+          )}
+        </td>
+      </tr>
+    `;
+  }).join("");
+
+  return `
+    <article class="tarjeta-marca">
+
+      <h2>${escaparHTML(marca)}</h2>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th>Kg</th>
+            <th>Pieza</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          ${filas}
+        </tbody>
+      </table>
+
+    </article>
+  `;
+}
+
+// LISTA ORIGINAL PARA IMPRESIÓN
+// Las descripciones no aparecen aquí.
+function crearListaImpresion(productos) {
+  const marcas=obtenerMarcas(productos);
+
+  const contenido=marcas.map(marca=>{
+    const productosMarca=productos.filter(
+      producto=>obtenerMarca(producto)===marca
+    );
+
+    const filas=productosMarca.map(producto=>{
+      const peso=obtenerPeso(producto);
+
+      return `
+        <tr>
+          <td>
+            ${escaparHTML(obtenerNombre(producto))}
+          </td>
+
+          <td>
+            ${peso?escaparHTML(peso):"—"}
+          </td>
+
+          <td class="precio-impreso">
+            ${formatoPrecio(
+              obtenerPrecioKilo(producto)
+            )}
+          </td>
+
+          <td class="precio-impreso">
+            ${formatoPrecio(
+              obtenerPrecioPieza(producto)
+            )}
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    return `
+      <tr class="fila-marca">
+        <td colspan="4">
+          ${escaparHTML(marca)}
+        </td>
+      </tr>
+
+      ${filas}
+    `;
+  }).join("");
+
+  listaImpresion.innerHTML=`
+    <div class="cabecera-impresion">
+
+      <div class="logo-impresion">
+        <img
+          src="Logo.png"
+          alt="Distribuidora Los Güeros"
+        >
+      </div>
+
+      <div class="datos-impresion">
+        <strong>
+          DISTRIBUIDORA DE<br>
+          QUESOS Y CARNES FRÍAS
+        </strong>
+
+        <p>
+          Tú pides, nosotros llevamos frescura.
+        </p>
+      </div>
+
+    </div>
+
+    <table class="tabla-impresion">
+
+      <thead>
+        <tr>
+          <th>PRODUCTO</th>
+          <th>PESO</th>
+          <th>PRECIO POR KILO</th>
+          <th>PRECIO POR PIEZA</th>
+        </tr>
+      </thead>
+
+      <tbody>
+        ${contenido}
+      </tbody>
+
+    </table>
+
+    <div class="pie-impresion">
+      Gracias por tu preferencia
+    </div>
+  `;
+}
+
+// RENDERIZAR CATÁLOGO
+function renderizarCatalogo() {
+  const productos=obtenerProductos();
+
+  actualizarFiltro(productos);
+
+  const texto=buscador.value
+    .trim()
+    .toLocaleLowerCase("es");
+
+  const marcaSeleccionada=filtroMarca.value;
+
+  const filtrados=productos.filter(producto=>{
+    const nombre=obtenerNombre(producto)
+      .toLocaleLowerCase("es");
+
+    const marca=obtenerMarca(producto);
+
+    const descripcion=obtenerDescripcion(producto)
+      .toLocaleLowerCase("es");
+
+    const coincideTexto=
+      nombre.includes(texto) ||
+      marca.toLocaleLowerCase("es").includes(texto) ||
+      descripcion.includes(texto);
+
+    const coincideMarca=
+      !marcaSeleccionada ||
+      marca===marcaSeleccionada;
+
+    return coincideTexto && coincideMarca;
+  });
+
+  if(filtrados.length===0) {
+    catalogo.innerHTML=`
+      <div class="vacio">
+        No hay productos para mostrar.
+      </div>
+    `;
+  } else {
+    const marcas=obtenerMarcas(filtrados);
+
+    catalogo.innerHTML=marcas.map(marca=>{
+      const productosMarca=filtrados.filter(
+        producto=>obtenerMarca(producto)===marca
+      );
+
+      return crearTarjetaMarca(
+        marca,
+        productosMarca
+      );
+    }).join("");
+  }
+
+  crearListaImpresion(filtrados);
+}
+
+// EVENTOS ORIGINALES
+buscador.addEventListener(
+  "input",
+  renderizarCatalogo
+);
+
+filtroMarca.addEventListener(
+  "change",
+  renderizarCatalogo
+);
+
+btnImprimir.addEventListener("click",()=>{
+  renderizarCatalogo();
+  window.print();
+});
+
+window.addEventListener("storage",evento=>{
+  if(evento.key===CLAVE_PRODUCTOS) {
+    renderizarCatalogo();
+  }
+});
+
+window.addEventListener("focus",()=>{
+  renderizarCatalogo();
+});
+
+renderizarCatalogo();
+</script>
+
+</body>
+</html>
